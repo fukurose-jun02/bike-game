@@ -1,19 +1,19 @@
-// Game Configuration
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 600;
+// Game Configuration (sized to fit the screen — see resizeCanvas)
+let CANVAS_WIDTH = 800;
+let CANVAS_HEIGHT = 600;
 const FPS = 60;
 
 // Physics Constants
 const ACCELERATION = 0.8;
 const FRICTION = 0.92;
 const MAX_SPEED = 12;
-const ROAD_LEFT_LIMIT = 120;
-const ROAD_RIGHT_LIMIT = CANVAS_WIDTH - 120;
+let ROAD_MARGIN = 100;      // distance of the side lines from each edge
+let ROAD_LEFT_LIMIT = 120;  // how far left the bike can go
+let ROAD_RIGHT_LIMIT = CANVAS_WIDTH - 120;
 
 // Obstacle Settings
 const OBSTACLE_SPAWN_RATE = 1000; // ms
 const OBSTACLE_TYPES = ['🚗', '🚧', '🐄'];
-const LANE_WIDTH = (ROAD_RIGHT_LIMIT - ROAD_LEFT_LIMIT) / 3;
 
 // Game State
 const state = {
@@ -41,6 +41,32 @@ const keys = {
 // Canvas Setup
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
+
+// Size the canvas to fill its (responsive) CSS box, and derive the road layout
+// from the actual dimensions so the game fills the whole screen on mobile.
+function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    CANVAS_WIDTH = canvas.width = Math.round(rect.width) || CANVAS_WIDTH;
+    CANVAS_HEIGHT = canvas.height = Math.round(rect.height) || CANVAS_HEIGHT;
+
+    // Road margins scale with width so the lanes stay usable on narrow screens
+    ROAD_MARGIN = Math.round(CANVAS_WIDTH * 0.13);
+    ROAD_LEFT_LIMIT = ROAD_MARGIN + 20;
+    ROAD_RIGHT_LIMIT = CANVAS_WIDTH - ROAD_MARGIN - 20;
+
+    if (!state.isPlaying) {
+        // Re-center the bike (and its soba stack) before a run starts
+        state.bikeX = CANVAS_WIDTH / 2;
+        state.sobaPositions = state.sobaPositions.map(() => state.bikeX);
+    } else {
+        state.bikeX = Math.min(Math.max(state.bikeX, ROAD_LEFT_LIMIT), ROAD_RIGHT_LIMIT);
+    }
+
+    draw();
+}
+
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', resizeCanvas);
 
 // Input Handling
 window.addEventListener('keydown', (e) => {
@@ -366,13 +392,13 @@ function drawRoad() {
     ctx.lineWidth = 20;
     // Left
     ctx.beginPath();
-    ctx.moveTo(100, 0);
-    ctx.lineTo(100, CANVAS_HEIGHT);
+    ctx.moveTo(ROAD_MARGIN, 0);
+    ctx.lineTo(ROAD_MARGIN, CANVAS_HEIGHT);
     ctx.stroke();
     // Right
     ctx.beginPath();
-    ctx.moveTo(CANVAS_WIDTH - 100, 0);
-    ctx.lineTo(CANVAS_WIDTH - 100, CANVAS_HEIGHT);
+    ctx.moveTo(CANVAS_WIDTH - ROAD_MARGIN, 0);
+    ctx.lineTo(CANVAS_WIDTH - ROAD_MARGIN, CANVAS_HEIGHT);
     ctx.stroke();
 }
 
@@ -390,5 +416,6 @@ function drawBike(x, y) {
 }
 
 // Initial draw
+resizeCanvas();
 draw();
 requestAnimationFrame(gameLoop);
