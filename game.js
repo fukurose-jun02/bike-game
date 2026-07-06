@@ -62,23 +62,72 @@ window.addEventListener('keyup', (e) => {
     }
 });
 
-canvas.addEventListener('mousemove', (e) => {
-    if (!state.isPlaying || state.isCrash) return;
-
+// Convert a client X coordinate into canvas-space (handles CSS scaling on mobile)
+function clientToCanvasX(clientX) {
     const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
+    const scaleX = canvas.width / rect.width;
+    return (clientX - rect.left) * scaleX;
+}
 
-    if (mouseX < state.bikeX - 20) {
+// Steer the bike toward a given canvas-space X position
+function steerTowards(targetX) {
+    if (targetX < state.bikeX - 20) {
         keys.ArrowLeft = true;
         keys.ArrowRight = false;
-    } else if (mouseX > state.bikeX + 20) {
+    } else if (targetX > state.bikeX + 20) {
         keys.ArrowRight = true;
         keys.ArrowLeft = false;
     } else {
         keys.ArrowLeft = false;
         keys.ArrowRight = false;
     }
+}
+
+canvas.addEventListener('mousemove', (e) => {
+    if (!state.isPlaying || state.isCrash) return;
+    steerTowards(clientToCanvasX(e.clientX));
 });
+
+// --- Touch Handling (mobile) ---
+
+function handleTouchSteer(e) {
+    if (!state.isPlaying || state.isCrash) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    if (!touch) return;
+    steerTowards(clientToCanvasX(touch.clientX));
+}
+
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (!state.isPlaying && !state.isCrash) {
+        startGame();
+        return;
+    }
+    if (state.isCrash) {
+        recoverSoba();
+        return;
+    }
+    handleTouchSteer(e);
+}, { passive: false });
+
+canvas.addEventListener('touchmove', handleTouchSteer, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+    keys.ArrowLeft = false;
+    keys.ArrowRight = false;
+}, { passive: false });
+
+// Tap the message overlay (start / game over screen) to (re)start
+const messageOverlay = document.getElementById('message-overlay');
+function startFromOverlay(e) {
+    if (e) e.preventDefault();
+    if (!state.isPlaying && !state.isCrash) {
+        startGame();
+    }
+}
+messageOverlay.addEventListener('touchstart', startFromOverlay, { passive: false });
+messageOverlay.addEventListener('click', () => startFromOverlay());
 
 
 // Game Loop
@@ -282,8 +331,8 @@ function draw() {
         ctx.lineWidth = 2;
         ctx.font = "bold 30px Arial";
         ctx.textAlign = "center";
-        ctx.fillText("SPACE連打で復帰！", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
-        ctx.strokeText("SPACE連打で復帰！", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
+        ctx.fillText("連打で復帰！(SPACE / タップ)", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
+        ctx.strokeText("連打で復帰！(SPACE / タップ)", CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
     }
 }
 
